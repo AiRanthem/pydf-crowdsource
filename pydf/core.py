@@ -7,6 +7,7 @@ import time
 from typing import List
 
 import pydf.log as log
+from pydf.config import Config
 from pydf.pdf import create_watermark, add_watermark, merge
 
 
@@ -22,15 +23,14 @@ def create_dir(path: str) -> str:
 
 class PyDF:
 
-    def __init__(self, store_dir: str, with_water_mark: bool = True):
-        self.root = store_dir
-        self.water_mark = with_water_mark
+    def __init__(self, config: Config = None):
+        self.root = config.store_dir
+        self.with_watermark = config.with_watermark
+        self.config = config
         self.library = ""
         self.top = ""
         self.worklist = []
         self.worklock = threading.Lock()
-        self.init()
-        log.info(f"PyDF instance inited. Store path is {self.root}")
 
     def new_dir(self, path: str):
         """
@@ -75,7 +75,7 @@ class PyDF:
             with self.worklock:
                 self.worklist.append(f)
             out_file = os.path.join(user_lib, f"{time.time()}_{random.randrange(1, 1000)}.pdf")
-            if self.water_mark:
+            if self.with_watermark:
                 add_watermark(f, os.path.join(user_lib, "mark.pdf"), out_file)
             else:
                 shutil.copyfile(f, out_file)
