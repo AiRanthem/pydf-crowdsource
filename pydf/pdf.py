@@ -1,6 +1,7 @@
 import os.path
+import time
 
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader, PdfFileWriter, PdfFileMerger
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 
@@ -44,21 +45,32 @@ def add_watermark(pdf_file_in, pdf_file_mark, pdf_file_out):
     pdf_input = PdfFileReader(input_stream, strict=False)
 
     # 获取PDF文件的页数
-    pageNum = pdf_input.getNumPages()
+    page_num = pdf_input.getNumPages()
 
     # 读入水印pdf文件
-    pdf_watermark = PdfFileReader(open(pdf_file_mark, 'rb'), strict=False)
-    # 给每一页打水印
-    for i in range(pageNum):
-        page = pdf_input.getPage(i)
-        page.mergePage(pdf_watermark.getPage(0))
-        page.compressContentStreams()  # 压缩内容
-        pdf_output.addPage(page)
-    pdf_output.write(open(pdf_file_out, 'wb'))
+    with open(pdf_file_mark, 'rb') as f:
+        pdf_watermark = PdfFileReader(f, strict=False)
+        # 给每一页打水印
+        for i in range(page_num):
+            page = pdf_input.getPage(i)
+            page.mergePage(pdf_watermark.getPage(0))
+            page.compressContentStreams()  # 压缩内容
+            pdf_output.addPage(page)
+        pdf_output.write(open(pdf_file_out, 'wb'))
+
+    input_stream.close()
 
 
-if __name__ == '__main__':
-    pdf_file_in = r'C:\Users\AiRanthem\Desktop\pydf-crowdsource\spec\pdf\2.pdf'
-    pdf_file_out = r'C:\Users\AiRanthem\Desktop\pydf-crowdsource\spec\pdf\watermarked.pdf'
-    pdf_file_mark = create_watermark('Test')
-    add_watermark(pdf_file_in, pdf_file_mark, pdf_file_out)
+def merge(files: list, out_dir: str) -> str:
+    """
+    merge given pdf files
+    :param files: pdf file paths
+    :param out_dir: output dir for merged file
+    :return: the absulote path of merged file
+    """
+    merger = PdfFileMerger()
+    for f in files:
+        merger.append(f)
+    out_file = os.path.join(out_dir, f"{time.time()}.pdf")
+    merger.write(out_file)
+    return out_file

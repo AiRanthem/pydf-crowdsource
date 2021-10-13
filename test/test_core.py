@@ -4,7 +4,7 @@ import unittest
 
 from pydf import PyDF
 from pydf.log import set_logger, get_logger
-from test.logger import TestLogger
+from logger import TestLogger
 
 
 class TestCore(unittest.TestCase):
