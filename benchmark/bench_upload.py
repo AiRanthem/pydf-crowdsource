@@ -9,8 +9,9 @@ def bench_upload():
     if os.path.exists("store"):
         shutil.rmtree("store")
     p = PyDF("store")
-    l = ["assets/1.pdf" for _ in range(50)]
-    bench(2, p.async_upload, "xiaoming", l)
+    l = ["assets/1.pdf" for _ in range(20)]
+    bench(2, p.upload, "xiaoming", l)
+    p.water_mark = False
     bench(2, p.upload, "xiaohong", l)
     shutil.rmtree("store")
 

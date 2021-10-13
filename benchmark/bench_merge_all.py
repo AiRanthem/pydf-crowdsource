@@ -2,6 +2,7 @@ import os
 import shutil
 
 from pydf import PyDF
+from utils import bench
 
 
 def bench_merge_all():
@@ -10,6 +11,8 @@ def bench_merge_all():
     p = PyDF("store", False)
     files = ["assets/1.pdf" for _ in range(200)]
     p.upload("xiaoming", files)
+    bench(3, p.merge_all)
+    shutil.rmtree("store")
 
 
 if __name__ == '__main__':

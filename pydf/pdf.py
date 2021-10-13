@@ -73,4 +73,5 @@ def merge(files: list, out_dir: str) -> str:
         merger.append(f)
     out_file = os.path.join(out_dir, f"{time.time()}.pdf")
     merger.write(out_file)
+    merger.close()
     return out_file

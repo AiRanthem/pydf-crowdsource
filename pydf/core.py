@@ -1,13 +1,13 @@
+import asyncio
 import os
+import random
 import shutil
 import threading
-import asyncio
 import time
 from typing import List
-from queue import Queue
 
-from pydf.pdf import create_watermark, add_watermark, merge
 import pydf.log as log
+from pydf.pdf import create_watermark, add_watermark, merge
 
 
 def create_dir(path: str) -> str:
@@ -20,18 +20,6 @@ def create_dir(path: str) -> str:
     return os.path.abspath(path)
 
 
-async def run_all(jobs: list):
-    await asyncio.gather(*jobs)
-
-
-async def store_pdf(in_file: str, user_lib: str, water_mark: bool):
-    out_file = os.path.join(user_lib, f"{time.time()}.pdf")
-    if water_mark:
-        add_watermark(in_file, os.path.join(user_lib, "mark.pdf"), out_file)
-    else:
-        shutil.copyfile(in_file, out_file)
-
-
 class PyDF:
 
     def __init__(self, store_dir: str, with_water_mark: bool = True):
@@ -39,7 +27,7 @@ class PyDF:
         self.water_mark = with_water_mark
         self.library = ""
         self.top = ""
-        self.worklist = Queue()
+        self.worklist = []
         self.worklock = threading.Lock()
         self.init()
         log.info(f"PyDF instance inited. Store path is {self.root}")
@@ -71,25 +59,6 @@ class PyDF:
         self.root = create_dir(self.root)
         self.library = self.new_dir("library")
 
-    def async_upload(self, user: str, pdfs: List[str]) -> bool:
-        """
-        never use this only when you're running benchmarks.
-        :param user: the user who uploaded them
-        :param pdfs: a list of path to find the files to upload
-        :return: success or not
-        """
-        user_lib = self.get_user_lib(user)
-        store_jobs = []
-
-        for f in pdfs:
-            if not os.path.exists(f):
-                log.error(f"file {os.path.abspath(f)} not exits")
-                return False
-            self.worklist.put(f)
-            store_jobs.append(store_pdf(f, user_lib, self.water_mark))
-        asyncio.run(run_all(store_jobs))
-        return True
-
     def upload(self, user: str, pdfs: List[str]) -> bool:
         """
         upload some pdf files. this sync way is always a little bit faster than the async one
@@ -103,8 +72,9 @@ class PyDF:
             if not os.path.exists(f):
                 log.error(f"file {os.path.abspath(f)} not exits")
                 return False
-            self.worklist.put(f)
-            out_file = os.path.join(user_lib, f"{time.time()}.pdf")
+            with self.worklock:
+                self.worklist.append(f)
+            out_file = os.path.join(user_lib, f"{time.time()}_{random.randrange(1, 1000)}.pdf")
             if self.water_mark:
                 add_watermark(f, os.path.join(user_lib, "mark.pdf"), out_file)
             else:
@@ -124,7 +94,6 @@ class PyDF:
             log.info(f"{len(files)} pdf files merged to {self.top}")
         except Exception as e:
             log.error(f"merge_all failed: {e}")
-            self.top = ""
 
     def append_worklist(self) -> None:
         """
@@ -132,4 +101,20 @@ class PyDF:
         with the new file. the old file will not be kept.
         """
         if self.top == "":
-            return self.merge_all()
+            return self.merge_all()  # todo
+
+    def collect(self):
+        """
+        collect everything in "self.worklist"
+        """
+        with self.worklock:
+            files = self.worklist + [self.top] if self.top != "" else self.worklist
+            self.worklist = []
+        try:
+            self.top = merge(files, self.root)
+            log.info(f"{len(files)} pdf files merged to {self.top}")
+        except Exception as e:
+            log.error(f"collect failed: {e}")
+
+    def download(self):
+        return self.top
