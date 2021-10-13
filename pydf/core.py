@@ -1,19 +1,27 @@
 import os
 import shutil
-import sys
 import threading
 from typing import List
 from queue import Queue
 
-import PyPDF2
-
+from pydf.pdf import create_watermark, add_watermark
 import pydf.log as log
+
+
+def create_dir(path: str) -> str:
+    """
+    create a directory
+    :param path: directory path
+    :return: absolute path of the directory created
+    """
+    os.makedirs(path, exist_ok=True)
+    return os.path.abspath(path)
 
 
 class PyDF:
 
     def __init__(self, store_dir: str):
-        self.root = os.path.normpath(store_dir)
+        self.root = store_dir
         self.library = ""
         self.top = ""
         self.worklist = Queue()
@@ -21,20 +29,32 @@ class PyDF:
         self.init()
         log.info(f"PyDF instance inited. Store path is {self.root}")
 
+    def new_dir(self, path: str):
+        """
+        create a new directory in root dir
+        :param path: directory path
+        :return: the absolute path of dir
+        """
+        return create_dir(os.path.join(self.root, path))
+
+    def get_user_lib(self, user: str):
+        """
+        create a new lib in library dir
+        :param user: username
+        :return: the absolute path of dir
+        """
+        path = create_dir(os.path.join(self.library, user))
+        watermark = os.path.join(path, "mark.pdf")
+        if not os.path.exists(watermark):
+            create_watermark(user, watermark)
+        return path
+
     def init(self):
         """
         init file store path
         """
-        splited = self.root.split(os.sep) + ["library"]
-        path = ""
-        for d in splited:
-            path = os.path.join(path, d)
-            if not os.path.isdir(path):
-                raise RuntimeError(f"初始化失败：文件{path}已存在")
-            if not os.path.exists(path):
-                os.mkdir(path)
-        self.root = os.path.abspath(path)
-        self.library = os.path.join(self.root, "library")
+        self.root = create_dir(self.root)
+        self.library = self.new_dir("library")
 
     def upload(self, user: str, pdfs: List[str]) -> bool:
         """
@@ -43,9 +63,7 @@ class PyDF:
         :param pdfs: a list of path to find the files to upload
         :return: success or not
         """
-        user_lib = os.path.join(self.library, user)
-        if not os.path.exists(user_lib):
-            os.mkdir(user_lib)
+        user_lib = self.get_user_lib(user)
 
         for pdf in pdfs:
             if not os.path.exists(pdf):
